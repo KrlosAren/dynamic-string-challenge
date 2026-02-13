@@ -9,12 +9,6 @@ resource "aws_ssm_parameter" "dynamic_string" {
   value = "__DYNAMIC_STRING__"
 }
 
-resource "aws_cloudwatch_log_group" "dynamic_string" {
-  name = "/aws/lambda/dynamic_lambda_function"
-  retention_in_days = 7
-
-}
-
 data "archive_file" "dynamic_string" {
   type        = "zip"
   source_file = "${path.module}/lambda/handler.py"
@@ -33,7 +27,7 @@ data "aws_iam_policy_document" "assume_role" {
   }
 }
 
-data "aws_iam_policy_document" "ssm_parameter_permissions" {
+data "aws_iam_policy_document" "lambda_permissions" {
   statement {
     effect = "Allow"
     actions = [
@@ -43,7 +37,7 @@ data "aws_iam_policy_document" "ssm_parameter_permissions" {
     ]
     resources = [aws_ssm_parameter.dynamic_string.arn]
   }
-
+  
 }
 
 resource "aws_iam_role" "dynamic_string_role" {
@@ -52,8 +46,8 @@ resource "aws_iam_role" "dynamic_string_role" {
 
 }
 
-resource "aws_iam_role_policy" "ssm_parameter_policy" {
-  policy = data.aws_iam_policy_document.ssm_parameter_permissions.json
+resource "aws_iam_role_policy" "lambda_permissions" {
+  policy = data.aws_iam_policy_document.lambda_permissions.json
   role   = aws_iam_role.dynamic_string_role.id
 }
 
@@ -67,11 +61,8 @@ resource "aws_lambda_function" "dynamic_func" {
   runtime     = "python3.12"
   code_sha256 = data.archive_file.dynamic_string.output_base64sha256
 
-  logging_config {
-    log_format = "JSON"
-    application_log_level = "INFO"
-    system_log_level = "WARN"
-  }
+
+
 
   environment {
     variables = {
@@ -79,7 +70,6 @@ resource "aws_lambda_function" "dynamic_func" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.dynamic_string]
 
 }
 
@@ -90,6 +80,3 @@ resource "aws_lambda_function_url" "dynamic_string" {
 }
 
 
-output "fun_uri" {
-  value = aws_lambda_function_url.dynamic_string.function_url
-}
